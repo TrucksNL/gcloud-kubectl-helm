@@ -33,9 +33,6 @@ jobs:
         images: |
           ${{ env.DOCKER_REPO }}
           ${{ env.GHCR_REPO }}
-        tags: |
-          latest
-          ${{ github.run_number }}
     
     - name: Login to Docker Hub
       if: github.event_name != 'pull_request'
@@ -61,7 +58,7 @@ jobs:
       with:
         platforms: ${{ matrix.platform }}
         labels: ${{ steps.meta.outputs.labels }}
-        tags: ${{ steps.meta.outputs.tags }}
+        tags: ${{ github.repository }}
         outputs: type=image,push-by-digest=true,name-canonical=true,push=true
     
     - name: Export digest
