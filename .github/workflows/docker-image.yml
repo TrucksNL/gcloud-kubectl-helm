@@ -11,7 +11,7 @@ on:
 
 env:
   DOCKER_REPO: trucksnl/gcloud-kubectl-helm
-  GHC_REPO: ghcr.io/trucksnl/gcloud-kubectl-helm
+  GHCR_REPO: ghcr.io/trucksnl/gcloud-kubectl-helm
 
 jobs:
   build:
