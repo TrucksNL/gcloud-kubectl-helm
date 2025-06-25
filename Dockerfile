@@ -3,4 +3,4 @@ FROM gcr.io/google.com/cloudsdktool/google-cloud-cli:alpine
 
 RUN gcloud components install kubectl gke-gcloud-auth-plugin
 
-RUN apk add openssl helm
+RUN apk add helm
