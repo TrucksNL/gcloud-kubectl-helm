@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM debian:bookworm AS base
+FROM debian:stable-slim AS base
 
 RUN apt-get update && \
     apt-get install -y apt-transport-https ca-certificates gnupg curl && \
