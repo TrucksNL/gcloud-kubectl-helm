@@ -52,26 +52,46 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build and push by digest
-      id: build
+    - name: Build and push by digest to Docker Hub
+      id: build-dockerhub
       uses: docker/build-push-action@v6
       with:
         platforms: linux/${{ matrix.platform }}
         labels: ${{ steps.meta.outputs.labels }}
-        tags: trucksnl/gcloud-kubectl-helm
+        tags: ${{ env.DOCKER_REPO }}
         outputs: type=image,push-by-digest=true,name-canonical=true,push=true
-    
-    - name: Export digest
-      run: |
-        mkdir -p ${{ runner.temp }}/digests
-        digest="${{ steps.build.outputs.digest }}"
-        touch "${{ runner.temp }}/digests/${digest#sha256:}"
 
-    - name: Upload digest
+    - name: Build and push by digest to GHCR
+      id: build-ghcr
+      uses: docker/build-push-action@v6
+      with:
+        platforms: linux/${{ matrix.platform }}
+        labels: ${{ steps.meta.outputs.labels }}
+        tags: ${{ env.GHCR_REPO }}
+        outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+
+    - name: Export digests
+      run: |
+        mkdir -p ${{ runner.temp }}/digests/dockerhub
+        mkdir -p ${{ runner.temp }}/digests/ghcr
+        dockerhub_digest="${{ steps.build-dockerhub.outputs.digest }}"
+        ghcr_digest="${{ steps.build-ghcr.outputs.digest }}"
+        touch "${{ runner.temp }}/digests/dockerhub/${dockerhub_digest#sha256:}"
+        touch "${{ runner.temp }}/digests/ghcr/${ghcr_digest#sha256:}"
+
+    - name: Upload Docker Hub digest
       uses: actions/upload-artifact@v4
       with:
-        name: digests-${{ matrix.platform }}
-        path: ${{ runner.temp }}/digests/*
+        name: digests-dockerhub-${{ matrix.platform }}
+        path: ${{ runner.temp }}/digests/dockerhub/*
+        if-no-files-found: error
+        retention-days: 1
+
+    - name: Upload GHCR digest
+      uses: actions/upload-artifact@v4
+      with:
+        name: digests-ghcr-${{ matrix.platform }}
+        path: ${{ runner.temp }}/digests/ghcr/*
         if-no-files-found: error
         retention-days: 1
 
@@ -80,11 +100,18 @@ jobs:
     needs:
       - build
     steps:
-      - name: Download digests
+      - name: Download Docker Hub digests
         uses: actions/download-artifact@v4
         with:
-          path: ${{ runner.temp }}/digests
-          pattern: digests-*
+          path: ${{ runner.temp }}/digests/dockerhub
+          pattern: digests-dockerhub-*
+          merge-multiple: true
+
+      - name: Download GHCR digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests/ghcr
+          pattern: digests-ghcr-*
           merge-multiple: true
 
       - name: Login to Docker Hub
@@ -114,14 +141,18 @@ jobs:
             latest
             ${{ github.run_number }}
 
-      - name: Create manifest list and push
-        working-directory: ${{ runner.temp }}/digests
+      - name: Create manifest list and push to Docker Hub
+        working-directory: ${{ runner.temp }}/digests/dockerhub
         run: |
           docker buildx imagetools create \
-            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(jq -cr '.tags | map(select(startswith("ghcr.io/") | not)) | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.DOCKER_REPO }}@sha256:%s ' *)
+
+      - name: Create manifest list and push to GHCR
+        working-directory: ${{ runner.temp }}/digests/ghcr
+        run: |
           docker buildx imagetools create \
-            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(jq -cr '.tags | map(select(startswith("ghcr.io/"))) | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.GHCR_REPO }}@sha256:%s ' *)
 
       - name: Inspect image
