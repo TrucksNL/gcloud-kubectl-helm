@@ -7,4 +7,4 @@ COPY --from=cosign /ko-app/cosign /usr/local/bin/cosign
 
 RUN gcloud components install kubectl gke-gcloud-auth-plugin
 
-RUN apk add helm docker-cli docker-cli-buildx
+RUN apk add helm docker-cli
