@@ -1,9 +1,15 @@
 # syntax=docker/dockerfile:1
+# Helm 4 from the upstream alpine/helm image; Alpine's apk package is still Helm 3.
+FROM alpine/helm:4 AS helm
+
 FROM gcr.io/google.com/cloudsdktool/google-cloud-cli:alpine
 
 RUN gcloud components install kubectl gke-gcloud-auth-plugin
 
-RUN apk add helm docker-cli
+RUN apk add docker-cli
+
+COPY --from=helm /usr/bin/helm /usr/local/bin/helm
+RUN helm version
 
 # Pinned to the sealed-secrets controller version running in both clusters.
 ARG KUBESEAL_VERSION=0.24.3
