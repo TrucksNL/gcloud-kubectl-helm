@@ -59,7 +59,7 @@ jobs:
         platforms: linux/${{ matrix.platform }}
         labels: ${{ steps.meta.outputs.labels }}
         tags: ${{ env.DOCKER_REPO }}
-        outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+        outputs: type=image,push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
 
     - name: Build and push by digest to GHCR
       id: build-ghcr
@@ -68,9 +68,10 @@ jobs:
         platforms: linux/${{ matrix.platform }}
         labels: ${{ steps.meta.outputs.labels }}
         tags: ${{ env.GHCR_REPO }}
-        outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+        outputs: type=image,push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
 
     - name: Export digests
+      if: github.event_name != 'pull_request'
       run: |
         mkdir -p ${{ runner.temp }}/digests/dockerhub
         mkdir -p ${{ runner.temp }}/digests/ghcr
@@ -80,6 +81,7 @@ jobs:
         touch "${{ runner.temp }}/digests/ghcr/${ghcr_digest#sha256:}"
 
     - name: Upload Docker Hub digest
+      if: github.event_name != 'pull_request'
       uses: actions/upload-artifact@v4
       with:
         name: digests-dockerhub-${{ matrix.platform }}
@@ -88,6 +90,7 @@ jobs:
         retention-days: 1
 
     - name: Upload GHCR digest
+      if: github.event_name != 'pull_request'
       uses: actions/upload-artifact@v4
       with:
         name: digests-ghcr-${{ matrix.platform }}
@@ -96,6 +99,7 @@ jobs:
         retention-days: 1
 
   merge:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04-arm
     needs:
       - build
